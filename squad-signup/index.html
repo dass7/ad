@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#1677ff" />
+  <title>组队报名表</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <style>
+    /* ===== Reset ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC',
+        'Hiragino Sans GB', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+      background: #f5f6f8;
+      color: #1a1a1a;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== Login Modal ===== */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .modal-overlay.hidden { display: none; }
+
+    .modal-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 28px 24px 24px;
+      width: 100%;
+      max-width: 340px;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .modal-icon { font-size: 36px; margin-bottom: 12px; }
+    .modal-box h2 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+    .modal-box p  { font-size: 13px; color: #888; margin-bottom: 20px; line-height: 1.5; }
+
+    .modal-input {
+      width: 100%;
+      padding: 13px 14px;
+      border: 1.5px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .modal-input:focus { border-color: #1677ff; }
+
+    .modal-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 13px;
+      background: #1677ff;
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+    }
+    .modal-btn:active { background: #0958d9; transform: scale(.98); }
+
+    /* ===== Share Modal ===== */
+    .share-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .share-overlay.hidden { display: none; }
+
+    .share-box {
+      background: #fff;
+      border-radius: 16px;
+      padding: 24px;
+      width: 100%;
+      max-width: 300px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0,0,0,.18);
+    }
+    .share-box h3 { font-size: 17px; font-weight: 700; margin-bottom: 4px; }
+    .share-box p  { font-size: 12px; color: #888; margin-bottom: 16px; }
+    #qrCanvas    { border-radius: 8px; }
+    .share-url {
+      margin-top: 14px;
+      background: #f5f6f8;
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 12px;
+      color: #555;
+      word-break: break-all;
+    }
+    .share-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .share-actions button {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity .2s;
+    }
+    .share-actions button:active { opacity: .75; }
+    .btn-copy  { background: #f0f5ff; color: #1677ff; }
+    .btn-close { background: #f5f6f8; color: #666; }
+
+    /* ===== Header ===== */
+    .header {
+      background: #fff;
+      border-bottom: 1px solid #eee;
+      padding: 11px 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .header-title { font-size: 16px; font-weight: 700; color: #1a1a1a; }
+
+    .header-right { display: flex; align-items: center; gap: 10px; }
+
+    .share-btn {
+      padding: 6px 12px;
+      background: #f0f5ff;
+      color: #1677ff;
+      border: none;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background .2s;
+    }
+    .share-btn:hover { background: #e0eaff; }
+
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 8px 4px 4px;
+      border-radius: 20px;
+      transition: background .15s;
+    }
+    .user-chip:hover { background: #f5f6f8; }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: #1677ff;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .user-name { font-size: 13px; color: #444; max-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ===== Status bar ===== */
+    .status-bar {
+      background: #fff;
+      border-bottom: 1px solid #f0f0f0;
+      padding: 5px 16px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #999;
+    }
+    .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #ccc;
+      transition: background .3s;
+      flex-shrink: 0;
+    }
+    .dot.green  { background: #52c41a; }
+    .dot.yellow { background: #faad14; }
+    .dot.red    { background: #ff4d4f; }
+
+    /* ===== Main ===== */
+    .main { padding: 12px; max-width: 860px; margin: 0 auto; }
+
+    /* ===== Table card ===== */
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 1px 6px rgba(0,0,0,.07);
+    }
+
+    .tbl { width: 100%; border-collapse: collapse; table-layout: fixed; }
+
+    /* col widths */
+    .tbl colgroup col:nth-child(1) { width: 72px; }
+    .tbl colgroup col:nth-child(2) { width: 50%; }
+    .tbl colgroup col:nth-child(3) { width: 50%; }
+
+    .tbl thead th {
+      background: #fafafa;
+      border-bottom: 1.5px solid #e8e8e8;
+      padding: 11px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #999;
+      letter-spacing: .5px;
+      text-align: left;
+    }
+
+    .tbl tbody tr {
+      border-bottom: 1px solid #f2f2f2;
+      transition: background .1s;
+    }
+    .tbl tbody tr:last-child { border-bottom: none; }
+    .tbl tbody tr:hover { background: #fafcff; }
+
+    /* group label */
+    .group-td {
+      padding: 0 8px;
+      vertical-align: top;
+      padding-top: 15px;
+    }
+    .group-badge {
+      display: inline-block;
+      background: #f0f5ff;
+      color: #1677ff;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 6px;
+      white-space: nowrap;
+      line-height: 1.4;
+    }
+
+    /* editable cell */
+    .cell-td { padding: 6px 6px 4px; vertical-align: top; }
+
+    .editable {
+      min-height: 58px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      font-size: 14px;
+      line-height: 1.65;
+      color: #1a1a1a;
+      border: 1.5px solid transparent;
+      transition: border-color .2s, background .15s;
+      cursor: text;
+      outline: none;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .editable:empty::before {
+      content: attr(data-ph);
+      color: #c8c8c8;
+      font-size: 13px;
+      pointer-events: none;
+    }
+    .editable:hover { border-color: #d9d9d9; background: #fafafa; }
+    .editable:focus { border-color: #1677ff; background: #fff; box-shadow: 0 0 0 3px rgba(22,119,255,.08); }
+
+    /* edit meta */
+    .edit-meta {
+      font-size: 11px;
+      color: #bbb;
+      padding: 2px 10px 6px;
+      min-height: 18px;
+    }
+
+    /* flash on remote update */
+    @keyframes rowFlash {
+      0%   { background: #e6f4ff; }
+      100% { background: transparent; }
+    }
+    .row-flash { animation: rowFlash .9s ease-out; }
+
+    /* ===== Footer ===== */
+    .footer {
+      text-align: center;
+      padding: 18px 0 28px;
+      font-size: 12px;
+      color: #c8c8c8;
+    }
+
+    /* ===== Toast ===== */
+    .toast {
+      position: fixed;
+      bottom: 72px;
+      left: 50%;
+      transform: translateX(-50%) translateY(10px);
+      background: rgba(20,20,20,.8);
+      color: #fff;
+      padding: 8px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity .25s, transform .25s;
+      z-index: 999;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* ===== Skeleton ===== */
+    @keyframes shimmer {
+      0%   { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, #f0f0f0 25%, #e8e8e8 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+      height: 18px;
+      width: 80%;
+    }
+    .skeleton-tall { height: 52px; width: 100%; }
+
+    /* ===== No-config Banner ===== */
+    .config-banner {
+      background: #fff7e6;
+      border: 1px solid #ffd591;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      color: #d46b08;
+      line-height: 1.6;
+      display: none;
+    }
+    .config-banner.show { display: block; }
+    .config-banner code {
+      background: #ffe7ba;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 12px;
+    }
+
+    /* ===== Mobile ===== */
+    @media (max-width: 480px) {
+      .tbl colgroup col:nth-child(1) { width: 60px; }
+      .group-badge { font-size: 11px; padding: 2px 5px; }
+      .editable { font-size: 13px; min-height: 50px; padding: 7px 8px; }
+      .header-title { font-size: 15px; }
+      .share-btn { padding: 5px 10px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== Login Modal ===== -->
+<div class="modal-overlay" id="loginModal">
+  <div class="modal-box">
+    <div class="modal-icon">👋</div>
+    <h2>填写你的名字</h2>
+    <p>输入昵称即可参与编辑，其他同学能看到是谁修改的哦～</p>
+    <input class="modal-input" id="nicknameInput" type="text"
+           placeholder="例如：张三" maxlength="16" autocomplete="off" />
+    <button class="modal-btn" id="loginBtn">进入报名表</button>
+  </div>
+</div>
+
+<!-- ===== Share Modal ===== -->
+<div class="share-overlay hidden" id="shareModal">
+  <div class="share-box">
+    <h3>📱 扫码填写</h3>
+    <p>把下面二维码发给同学，微信/QQ 扫一扫即可</p>
+    <canvas id="qrCanvas"></canvas>
+    <div class="share-url" id="shareUrl">–</div>
+    <div class="share-actions">
+      <button class="btn-copy" id="copyUrlBtn">复制链接</button>
+      <button class="btn-close" id="closeShareBtn">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Header ===== -->
+<header class="header">
+  <div class="header-left">
+    <span class="header-title">📋 组队报名表</span>
+  </div>
+  <div class="header-right">
+    <button class="share-btn" id="shareBtn">分享 ↗</button>
+    <div class="user-chip" id="userChip" title="点击修改名字">
+      <div class="avatar" id="userAvatar">?</div>
+      <span class="user-name" id="userName">–</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===== Status bar ===== -->
+<div class="status-bar">
+  <div class="dot" id="statusDot"></div>
+  <span id="statusText">连接中…</span>
+</div>
+
+<!-- ===== Main ===== -->
+<main class="main">
+
+  <!-- Config warning (shown when Supabase not configured) -->
+  <div class="config-banner" id="configBanner">
+    ⚠️ 请先配置 Supabase！打开 <code>index.html</code>，
+    找到顶部 <code>SUPABASE_URL</code> 和 <code>SUPABASE_ANON_KEY</code> 两行，
+    替换为你自己的值后刷新页面。详见 README.md。
+  </div>
+
+  <div class="card">
+    <table class="tbl">
+      <colgroup>
+        <col /><col /><col />
+      </colgroup>
+      <thead>
+        <tr>
+          <th>组数</th>
+          <th>组内成员（每行一人）</th>
+          <th>报名项目</th>
+        </tr>
+      </thead>
+      <tbody id="tableBody"></tbody>
+    </table>
+  </div>
+
+  <div class="footer">数据实时同步 · 支持多人同时填写 · 自动保存</div>
+</main>
+
+<!-- ===== Toast ===== -->
+<div class="toast" id="toast"></div>
+
+<script>
+'use strict';
+
+/* ================================================================
+   CONFIG  ← 在这两行填入你的 Supabase 项目信息
+   ================================================================ */
+const SUPABASE_URL     = 'https://YOUR_PROJECT_ID.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR_ANON_KEY';
+
+/* ================================================================
+   Constants
+   ================================================================ */
+const GROUP_NAMES = [
+  '第一组','第二组','第三组','第四组','第五组',
+  '第六组','第七组','第八组','第九组'
+];
+
+const AVATAR_COLORS = [
+  '#1677ff','#52c41a','#fa8c16','#eb2f96',
+  '#722ed1','#13c2c2','#f5222d','#2f54eb'
+];
+
+/* ================================================================
+   State
+   ================================================================ */
+let db          = null;
+let currentUser = null;
+let tableData   = {};       // { [groupId]: row }
+let saveTimers  = {};       // debounce handles per cell key
+let channel     = null;
+
+/* ================================================================
+   Supabase init
+   ================================================================ */
+function isConfigured() {
+  return SUPABASE_URL.includes('.supabase.co') &&
+         !SUPABASE_URL.includes('YOUR_PROJECT_ID') &&
+         SUPABASE_ANON_KEY.length > 20 &&
+         !SUPABASE_ANON_KEY.includes('YOUR_ANON');
+}
+
+function initDB() {
+  if (!isConfigured()) {
+    document.getElementById('configBanner').classList.add('show');
+    setStatus('error', '未配置 Supabase，请查看说明');
+    renderSkeleton();
+    return false;
+  }
+  const { createClient } = supabase;
+  db = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return true;
+}
+
+/* ================================================================
+   Auth  (简单昵称模式)
+   ================================================================ */
+function loadUser() {
+  const raw = localStorage.getItem('squad_user');
+  if (raw) {
+    try { return JSON.parse(raw); } catch { /* bad json */ }
+  }
+  return null;
+}
+
+function saveUserLocal(user) {
+  localStorage.setItem('squad_user', JSON.stringify(user));
+}
+
+function initAuth() {
+  currentUser = loadUser();
+
+  if (currentUser) {
+    renderUserChip(currentUser);
+    hideLoginModal();
+    start();
+  } else {
+    showLoginModal();
+  }
+}
+
+function showLoginModal() {
+  document.getElementById('loginModal').classList.remove('hidden');
+  setTimeout(() => document.getElementById('nicknameInput').focus(), 300);
+}
+function hideLoginModal() {
+  document.getElementById('loginModal').classList.add('hidden');
+}
+
+document.getElementById('loginBtn').addEventListener('click', doLogin);
+document.getElementById('nicknameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+function doLogin() {
+  const name = document.getElementById('nicknameInput').value.trim();
+  if (!name) { showToast('请输入你的名字 😊'); return; }
+
+  const colorIdx = Math.floor(Math.random() * AVATAR_COLORS.length);
+  currentUser = {
+    name,
+    id: 'u_' + Math.random().toString(36).slice(2, 9),
+    color: AVATAR_COLORS[colorIdx]
+  };
+  saveUserLocal(currentUser);
+  renderUserChip(currentUser);
+  hideLoginModal();
+  start();
+}
+
+// Click avatar to rename
+document.getElementById('userChip').addEventListener('click', () => {
+  if (!currentUser) return;
+  const n = prompt('修改你的显示名字', currentUser.name);
+  if (n && n.trim()) {
+    currentUser.name = n.trim();
+    saveUserLocal(currentUser);
+    renderUserChip(currentUser);
+    showToast('名字已更新');
+  }
+});
+
+function renderUserChip(user) {
+  document.getElementById('userAvatar').textContent = user.name.charAt(0);
+  document.getElementById('userAvatar').style.background = user.color;
+  document.getElementById('userName').textContent = user.name;
+}
+
+/* ================================================================
+   Bootstrap
+   ================================================================ */
+function start() {
+  if (!initDB()) return;
+  loadData();
+}
+
+/* ================================================================
+   Load data
+   ================================================================ */
+async function loadData() {
+  renderSkeleton();
+  setStatus('loading', '加载中…');
+
+  const { data, error } = await db
+    .from('groups')
+    .select('*')
+    .order('id');
+
+  if (error) {
+    console.error(error);
+    setStatus('error', '加载失败，请刷新重试');
+    showToast('加载失败：' + error.message);
+    return;
+  }
+
+  data.forEach(row => { tableData[row.id] = row; });
+  renderTable();
+  setStatus('ok', '已连接 · 实时同步');
+  setupRealtime();
+}
+
+/* ================================================================
+   Render skeleton
+   ================================================================ */
+function renderSkeleton() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = GROUP_NAMES.map(() => `
+    <tr>
+      <td class="group-td"><div class="skeleton" style="width:48px;height:22px;"></div></td>
+      <td class="cell-td"><div class="skeleton skeleton-tall"></div></td>
+      <td class="cell-td"><div class="skeleton skeleton-tall"></div></td>
+    </tr>`).join('');
+}
+
+/* ================================================================
+   Render table
+   ================================================================ */
+function renderTable() {
+  const tbody = document.getElementById('tableBody');
+  tbody.innerHTML = GROUP_NAMES.map((name, idx) => {
+    const id  = idx + 1;
+    const row = tableData[id] || {};
+    return buildRow(id, name, row);
+  }).join('');
+
+  attachCellListeners();
+}
+
+function buildRow(id, label, row) {
+  const members = esc(row.members || '');
+  const project = esc(row.project || '');
+  const meta    = buildMeta(row);
+
+  return `
+  <tr id="row-${id}">
+    <td class="group-td">
+      <span class="group-badge">${label}</span>
+    </td>
+    <td class="cell-td">
+      <div class="editable"
+           contenteditable="true"
+           data-gid="${id}" data-field="members"
+           data-ph="点击填写成员名字&#10;每行一人"
+      >${members}</div>
+      <div class="edit-meta" id="meta-${id}">${meta}</div>
+    </td>
+    <td class="cell-td">
+      <div class="editable"
+           contenteditable="true"
+           data-gid="${id}" data-field="project"
+           data-ph="点击填写报名项目"
+      >${project}</div>
+    </td>
+  </tr>`;
+}
+
+function buildMeta(row) {
+  if (!row.last_editor) return '';
+  return `✏️ ${esc(row.last_editor)} · ${relTime(row.last_modified)}`;
+}
+
+/* ================================================================
+   Cell events
+   ================================================================ */
+function attachCellListeners() {
+  document.querySelectorAll('.editable[contenteditable]').forEach(el => {
+    el.addEventListener('input',   onCellInput);
+    el.addEventListener('blur',    onCellBlur);
+    el.addEventListener('keydown', onCellKeydown);
+  });
+}
+
+function onCellKeydown(e) {
+  // Shift+Enter = newline in members column, Enter = move to project
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const field = e.target.dataset.field;
+    if (field === 'project') {
+      e.preventDefault(); // no newline in project
+    }
+  }
+}
+
+function onCellInput(e) {
+  const el    = e.target;
+  const gid   = el.dataset.gid;
+  const field = el.dataset.field;
+  const key   = `${gid}_${field}`;
+
+  clearTimeout(saveTimers[key]);
+  setStatus('saving', '保存中…');
+  saveTimers[key] = setTimeout(() => saveCell(gid, field, el.innerText.trim()), 900);
+}
+
+function onCellBlur(e) {
+  const el    = e.target;
+  const gid   = el.dataset.gid;
+  const field = el.dataset.field;
+  const key   = `${gid}_${field}`;
+
+  clearTimeout(saveTimers[key]);
+  saveCell(gid, field, el.innerText.trim());
+}
+
+/* ================================================================
+   Save
+   ================================================================ */
+async function saveCell(gid, field, value) {
+  if (!db || !currentUser) return;
+
+  const { error } = await db
+    .from('groups')
+    .update({
+      [field]:       value,
+      last_editor:   currentUser.name,
+      last_modified: new Date().toISOString()
+    })
+    .eq('id', gid);
+
+  if (error) {
+    console.error('Save error:', error);
+    setStatus('error', '保存失败');
+    showToast('保存失败，请检查网络');
+    return;
+  }
+
+  // Update local cache
+  if (!tableData[gid]) tableData[gid] = { id: gid };
+  tableData[gid][field]        = value;
+  tableData[gid].last_editor   = currentUser.name;
+  tableData[gid].last_modified = new Date().toISOString();
+
+  refreshMeta(gid);
+  setStatus('ok', '已保存 · 实时同步');
+}
+
+/* ================================================================
+   Realtime
+   ================================================================ */
+function setupRealtime() {
+  if (channel) channel.unsubscribe();
+
+  channel = db
+    .channel('squad-groups')
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'groups' },
+      onRemoteUpdate
+    )
+    .subscribe(status => {
+      if (status === 'SUBSCRIBED') setStatus('ok', '已连接 · 实时同步');
+      if (status === 'CHANNEL_ERROR') setStatus('error', '实时连接异常');
+    });
+}
+
+function onRemoteUpdate(payload) {
+  const updated = payload.new;
+  const gid     = updated.id;
+
+  // Skip our own saves (by editor name match; imperfect but sufficient)
+  if (updated.last_editor === currentUser?.name) return;
+
+  tableData[gid] = updated;
+
+  // Update cells without clobbering active input
+  updateCellIfIdle(gid, 'members', updated.members || '');
+  updateCellIfIdle(gid, 'project', updated.project || '');
+  refreshMeta(gid);
+  flashRow(gid);
+
+  showToast(`${updated.last_editor} 刚刚编辑了${GROUP_NAMES[gid - 1]}`);
+}
+
+function updateCellIfIdle(gid, field, value) {
+  const el = document.querySelector(`.editable[data-gid="${gid}"][data-field="${field}"]`);
+  if (!el || document.activeElement === el) return;
+  el.innerText = value;
+}
+
+function flashRow(gid) {
+  const row = document.getElementById(`row-${gid}`);
+  if (!row) return;
+  row.classList.remove('row-flash');
+  void row.offsetWidth; // reflow trick
+  row.classList.add('row-flash');
+  setTimeout(() => row.classList.remove('row-flash'), 900);
+}
+
+function refreshMeta(gid) {
+  const metaEl = document.getElementById(`meta-${gid}`);
+  if (!metaEl) return;
+  metaEl.innerHTML = buildMeta(tableData[gid] || {});
+}
+
+/* ================================================================
+   Status bar
+   ================================================================ */
+function setStatus(type, text) {
+  const dot  = document.getElementById('statusDot');
+  const span = document.getElementById('statusText');
+  dot.className = 'dot';
+  if (type === 'ok')     dot.classList.add('green');
+  if (type === 'saving') dot.classList.add('yellow');
+  if (type === 'error')  dot.classList.add('red');
+  span.textContent = text;
+}
+
+/* ================================================================
+   Share / QR
+   ================================================================ */
+document.getElementById('shareBtn').addEventListener('click', openShare);
+document.getElementById('closeShareBtn').addEventListener('click', closeShare);
+document.getElementById('shareModal').addEventListener('click', e => {
+  if (e.target === document.getElementById('shareModal')) closeShare();
+});
+document.getElementById('copyUrlBtn').addEventListener('click', () => {
+  navigator.clipboard.writeText(location.href)
+    .then(() => showToast('链接已复制 ✓'))
+    .catch(() => showToast('复制失败，请手动复制'));
+});
+
+function openShare() {
+  const url = location.href;
+  document.getElementById('shareUrl').textContent = url;
+  document.getElementById('shareModal').classList.remove('hidden');
+
+  QRCode.toCanvas(document.getElementById('qrCanvas'), url, {
+    width: 200,
+    margin: 2,
+    color: { dark: '#1a1a1a', light: '#ffffff' }
+  });
+}
+function closeShare() {
+  document.getElementById('shareModal').classList.add('hidden');
+}
+
+/* ================================================================
+   Toast
+   ================================================================ */
+let toastTimer = null;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 2600);
+}
+
+/* ================================================================
+   Utils
+   ================================================================ */
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;');
+}
+
+function relTime(isoStr) {
+  if (!isoStr) return '';
+  const diff = Date.now() - new Date(isoStr).getTime();
+  if (diff < 60e3)   return '刚刚';
+  if (diff < 3600e3) return Math.floor(diff / 60e3) + ' 分钟前';
+  if (diff < 86400e3)return Math.floor(diff / 3600e3) + ' 小时前';
+  const d = new Date(isoStr);
+  return `${d.getMonth()+1}/${d.getDate()}`;
+}
+
+/* ================================================================
+   Boot
+   ================================================================ */
+initAuth();
+</script>
+</body>
+</html>
