@@ -1,11 +1,16 @@
 ---
 title: MOC-营养学总览
+aliases:
+  - 总地图
+  - 营养学总览
 type: moc
 layer: 1
+up: "[[Home]]"
+status: mature
 created: 2026-05-27
-updated: 2026-05-27
+updated: 2026-06-11
 tags:
-  - system/MOC
+  - system/moc
   - type/moc
 ---
 
@@ -94,6 +99,14 @@ tags:
 #### [[MOC-考证指南]]
 > 四级 · 三级 · 二级 · 错题本 · 考前冲刺
 > 动态更新 | 贯穿全程
+
+---
+
+### 🔀 横向地图
+
+#### [[MOC-跨学科连接]]
+> 生化×临床 · 行为×膳食 · AI×营养 · 食品×政策
+> 跨越两个以上学科的连接主题在此登记 | 贯穿全程
 
 ---
 

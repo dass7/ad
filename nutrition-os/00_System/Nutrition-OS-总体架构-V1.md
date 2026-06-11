@@ -1,11 +1,15 @@
 ---
 title: Nutrition OS 总体架构 V1
-type: MOC
-status: 核心系统
+aliases:
+  - 总体架构
+  - 系统设计书
+type: system
+role: 核心系统架构
+up: "[[Home]]"
+status: mature
 created: 2026-05-27
-updated: 2026-05-27
+updated: 2026-06-11
 tags:
-  - system/MOC
   - system/architecture
   - system/root
 version: 1.0
