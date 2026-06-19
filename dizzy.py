@@ -31,10 +31,10 @@ def eye(cx, cy, tilt, pupil_dx):
     """Half-lidded vacant eye. tilt>0 raises the outer corner.
     pupil_dx pushes the pupil toward the nose (cross-eyed)."""
     cx, cy = cx * S, cy * S
-    hw, hh = 86 * S, 34 * S          # eye opening half-size (shallow = half-lidded)
+    hw, hh = 86 * S, 40 * S          # eye opening half-size
     lid_w = 15 * S
 
-    # eye white (thin lens shape under the heavy lid)
+    # eye white
     white = Image.new("RGBA", layer.size, (0, 0, 0, 0))
     wd = ImageDraw.Draw(white)
     wd.ellipse([cx - hw, cy - hh, cx + hw, cy + hh], fill=(250, 248, 246, 255))
@@ -43,25 +43,22 @@ def eye(cx, cy, tilt, pupil_dx):
 
     feature = Image.new("RGBA", layer.size, (0, 0, 0, 0))
     od = ImageDraw.Draw(feature)
-    # heavy upper-lid arc dipping low over the eye -> sleepy / 半睁放空
-    od.arc([cx - hw, cy - hh - 30 * S, cx + hw, cy + hh + 8 * S],
+    # upper-lid arc (lifted a bit -> awake, focused, not vacant)
+    od.arc([cx - hw, cy - hh - 14 * S, cx + hw, cy + hh + 14 * S],
            start=182, end=358, fill=INK + (255,), width=lid_w)
     # little lash flick at the outer corner
     od.line([(cx + hw - 4 * S, cy - 4 * S), (cx + hw + 24 * S, cy - 22 * S)],
             fill=INK + (255,), width=lid_w)
-    # faint lower-lid / tired bag line
-    od.arc([cx - hw + 18 * S, cy - 6 * S, cx + hw - 18 * S, cy + hh + 26 * S],
-           start=20, end=160, fill=(150, 120, 110, 180), width=5 * S)
     feature = feature.rotate(tilt, center=(cx, cy))
     layer.alpha_composite(feature)
 
-    # tiny vacant dot pupil, pulled toward the nose & sitting low (looking down-in)
-    pr = 18 * S
-    px, py = cx + pupil_dx * S, cy + 12 * S
+    # full rounded iris (focused, not a vacant dot)
+    pr = 37 * S
+    px, py = cx + pupil_dx * S, cy + 6 * S
     ld.ellipse([px - pr, py - pr, px + pr, py + pr], fill=INK + (255,))
-    # faint catchlight
-    ld.ellipse([px - pr + 4 * S, py - pr + 4 * S, px - pr + 12 * S, py - pr + 12 * S],
-               fill=(255, 255, 255, 220))
+    # catchlight
+    ld.ellipse([px - pr + 7 * S, py - pr + 7 * S, px - pr + 22 * S, py - pr + 22 * S],
+               fill=(255, 255, 255, 235))
 
 def closed_eye(cx, cy, tilt):
     """A simple closed-eye line for the other side."""
