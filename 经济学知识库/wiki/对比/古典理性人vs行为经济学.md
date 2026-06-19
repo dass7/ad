@@ -3,7 +3,7 @@ title: 古典理性人 vs 行为经济学
 type: 对比
 tags: [对比]
 created: 2026-06-18
-status: 待校正
+status: 已校正
 ---
 
 # 古典理性人 vs 行为经济学

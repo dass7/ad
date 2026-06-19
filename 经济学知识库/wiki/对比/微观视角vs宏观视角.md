@@ -3,7 +3,7 @@ title: 微观视角 vs 宏观视角
 type: 对比
 tags: [对比]
 created: 2026-06-18
-status: 待校正
+status: 已校正
 ---
 
 # 微观视角 vs 宏观视角
