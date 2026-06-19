@@ -63,9 +63,8 @@ def eye(cx, cy, tilt, pupil_dx):
     ld.ellipse([px - pr + 4 * S, py - pr + 4 * S, px - pr + 12 * S, py - pr + 12 * S],
                fill=(255, 255, 255, 220))
 
-# left eye pupil drifts right(+), right eye pupil drifts left(-) => cross-eyed
+# keep a single dazed eye; the other side is left as plain skin
 eye(*LE, tilt=8, pupil_dx=34)
-eye(*RE, tilt=-8, pupil_dx=-34)
 
 layer = layer.resize((W, H), Image.LANCZOS)
 base = base.convert("RGBA")
