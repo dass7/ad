@@ -78,8 +78,8 @@ def closed_eye(cx, cy, tilt):
     line = line.rotate(tilt, center=(cx, cy))
     layer.alpha_composite(line)
 
-# keep one dazed eye; draw a closed-eye line on the other side
-eye(*LE, tilt=8, pupil_dx=34)
+# keep one dazed eye (pupil centered, no cross-eye); closed line on the other
+eye(*LE, tilt=8, pupil_dx=0)
 closed_eye(*RE, tilt=-8)
 
 layer = layer.resize((W, H), Image.LANCZOS)
