@@ -1,66 +1,75 @@
 import math
-import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
 SRC = "/root/.claude/uploads/3327c047-f956-554e-a3bb-7362526c762c/b4bc20e5-49225.png"
 OUT = "/home/user/ad/dizzy_output.png"
 
-img = Image.open(SRC).convert("RGBA")
-W, H = img.size
+base = Image.open(SRC).convert("RGB")
+W, H = base.size
 
-# ---- 1. Very gentle swirl (a faint woozy lean, face stays clear) ----
-cx, cy = W * 0.5, H * 0.52
-radius = W * 0.48
-strength = 0.42                       # subtle — just a hint of warp
+# Eye centers (measured from the artwork)
+LE = (int(W * 0.412), int(H * 0.632))
+RE = (int(W * 0.632), int(H * 0.596))
+SKIN = (252, 219, 191)
+INK = (44, 34, 32)
 
-arr = np.asarray(img).astype(np.float32)
-ys, xs = np.mgrid[0:H, 0:W]
-dx = xs - cx
-dy = ys - cy
-dist = np.sqrt(dx * dx + dy * dy)
-angle = np.arctan2(dy, dx)
-amount = np.clip(1.0 - dist / radius, 0, 1) ** 1.5
-twist = angle + strength * amount
-src_x = np.clip((cx + dist * np.cos(twist)).astype(np.int32), 0, W - 1)
-src_y = np.clip((cy + dist * np.sin(twist)).astype(np.int32), 0, H - 1)
-img = Image.fromarray(arr[src_y, src_x].astype(np.uint8), "RGBA")
+# ---- 1. Cover the original eyes with feathered skin ----
+mask = Image.new("L", (W, H), 0)
+md = ImageDraw.Draw(mask)
+for (cx, cy) in (LE, RE):
+    md.ellipse([cx - 96, cy - 72, cx + 96, cy + 70], fill=255)
+mask = mask.filter(ImageFilter.GaussianBlur(10))
+skin = Image.new("RGB", (W, H), SKIN)
+base = Image.composite(skin, base, mask)
 
-base = img.convert("RGB")
+# ---- 2. Draw new dopey / dazed eyes (supersampled for clean lines) ----
+S = 3
+layer = Image.new("RGBA", (W * S, H * S), (0, 0, 0, 0))
+ld = ImageDraw.Draw(layer)
 
-# ---- 1b. Glassy unfocused gaze (the quiet "懵" lives in the eyes) ----
-eye_blur = base.filter(ImageFilter.GaussianBlur(5))
-eye_mask = Image.new("L", (W, H), 0)
-em = ImageDraw.Draw(eye_mask)
-# two soft ovals over the eyes (positions after the gentle swirl)
-for ex, ey in [(W * 0.41, H * 0.63), (W * 0.62, H * 0.605)]:
-    rx, ry = W * 0.075, H * 0.05
-    em.ellipse([ex - rx, ey - ry, ex + rx, ey + ry], fill=120)
-eye_mask = eye_mask.filter(ImageFilter.GaussianBlur(int(W * 0.03)))
-base = Image.composite(eye_blur, base, eye_mask)
+def eye(cx, cy, tilt, pupil_dx):
+    """Half-lidded vacant eye. tilt>0 raises the outer corner.
+    pupil_dx pushes the pupil toward the nose (cross-eyed)."""
+    cx, cy = cx * S, cy * S
+    hw, hh = 86 * S, 34 * S          # eye opening half-size (shallow = half-lidded)
+    lid_w = 15 * S
 
-# ---- 2. Dreamy soft-focus glow (the "out of it" depth) ----
-glow = base.filter(ImageFilter.GaussianBlur(6))
-base = Image.blend(base, glow, 0.18)
+    # eye white (thin lens shape under the heavy lid)
+    white = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    wd = ImageDraw.Draw(white)
+    wd.ellipse([cx - hw, cy - hh, cx + hw, cy + hh], fill=(250, 248, 246, 255))
+    white = white.rotate(tilt, center=(cx, cy))
+    layer.alpha_composite(white)
 
-# ---- 3. Whisper of double vision (very faint, low offset) ----
-ghost = base.filter(ImageFilter.GaussianBlur(2))
-shifted = Image.new("RGB", (W, H), (255, 255, 255))
-shifted.paste(ghost, (7, 3))
-base = Image.blend(base, shifted, 0.12)
+    feature = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    od = ImageDraw.Draw(feature)
+    # heavy upper-lid arc dipping low over the eye -> sleepy / 半睁放空
+    od.arc([cx - hw, cy - hh - 30 * S, cx + hw, cy + hh + 8 * S],
+           start=182, end=358, fill=INK + (255,), width=lid_w)
+    # little lash flick at the outer corner
+    od.line([(cx + hw - 4 * S, cy - 4 * S), (cx + hw + 24 * S, cy - 22 * S)],
+            fill=INK + (255,), width=lid_w)
+    # faint lower-lid / tired bag line
+    od.arc([cx - hw + 18 * S, cy - 6 * S, cx + hw - 18 * S, cy + hh + 26 * S],
+           start=20, end=160, fill=(150, 120, 110, 180), width=5 * S)
+    feature = feature.rotate(tilt, center=(cx, cy))
+    layer.alpha_composite(feature)
 
-# ---- 4. Subtle chromatic shimmer ----
-r, g, b = base.split()
-r = r.transform((W, H), Image.AFFINE, (1, 0, -3, 0, 1, 0))
-b = b.transform((W, H), Image.AFFINE, (1, 0, 3, 0, 1, 0))
-base = Image.merge("RGB", (r, g, b))
+    # tiny vacant dot pupil, pulled toward the nose & sitting low (looking down-in)
+    pr = 18 * S
+    px, py = cx + pupil_dx * S, cy + 12 * S
+    ld.ellipse([px - pr, py - pr, px + pr, py + pr], fill=INK + (255,))
+    # faint catchlight
+    ld.ellipse([px - pr + 4 * S, py - pr + 4 * S, px - pr + 12 * S, py - pr + 12 * S],
+               fill=(255, 255, 255, 220))
 
-# ---- 5. Soft depth vignette (pulls focus inward, dreamy) ----
-vig = Image.new("L", (W, H), 0)
-vd = ImageDraw.Draw(vig)
-vd.ellipse([int(-W * 0.10), int(-H * 0.10), int(W * 1.10), int(H * 1.10)], fill=255)
-vig = vig.filter(ImageFilter.GaussianBlur(int(W * 0.12)))
-dark = Image.new("RGB", (W, H), (245, 244, 248))   # gentle, light vignette
-base = Image.composite(base, dark, vig)
+# left eye pupil drifts right(+), right eye pupil drifts left(-) => cross-eyed
+eye(*LE, tilt=8, pupil_dx=34)
+eye(*RE, tilt=-8, pupil_dx=-34)
 
-base.save(OUT, quality=95)
+layer = layer.resize((W, H), Image.LANCZOS)
+base = base.convert("RGBA")
+base.alpha_composite(layer)
+
+base.convert("RGB").save(OUT, quality=95)
 print("saved", OUT)
