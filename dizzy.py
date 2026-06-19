@@ -63,8 +63,24 @@ def eye(cx, cy, tilt, pupil_dx):
     ld.ellipse([px - pr + 4 * S, py - pr + 4 * S, px - pr + 12 * S, py - pr + 12 * S],
                fill=(255, 255, 255, 220))
 
-# keep a single dazed eye; the other side is left as plain skin
+def closed_eye(cx, cy, tilt):
+    """A simple closed-eye line for the other side."""
+    cx, cy = cx * S, cy * S
+    hw = 80 * S
+    line = Image.new("RGBA", layer.size, (0, 0, 0, 0))
+    cd = ImageDraw.Draw(line)
+    # gentle convex-up curve = closed lid
+    cd.arc([cx - hw, cy - 28 * S, cx + hw, cy + 34 * S],
+           start=200, end=340, fill=INK + (255,), width=15 * S)
+    # lash flick at the outer corner to match the open eye
+    cd.line([(cx + hw - 8 * S, cy - 8 * S), (cx + hw + 22 * S, cy - 24 * S)],
+            fill=INK + (255,), width=15 * S)
+    line = line.rotate(tilt, center=(cx, cy))
+    layer.alpha_composite(line)
+
+# keep one dazed eye; draw a closed-eye line on the other side
 eye(*LE, tilt=8, pupil_dx=34)
+closed_eye(*RE, tilt=-8)
 
 layer = layer.resize((W, H), Image.LANCZOS)
 base = base.convert("RGBA")
