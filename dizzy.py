@@ -13,12 +13,17 @@ RE = (int(W * 0.632), int(H * 0.596))
 SKIN = (252, 219, 191)
 INK = (44, 34, 32)
 
-# ---- 1. Cover the original eyes with feathered skin ----
+# ---- 1. Cover the original eyes AND eyebrows with feathered skin ----
 mask = Image.new("L", (W, H), 0)
 md = ImageDraw.Draw(mask)
 for (cx, cy) in (LE, RE):
     md.ellipse([cx - 96, cy - 72, cx + 96, cy + 70], fill=255)
-mask = mask.filter(ImageFilter.GaussianBlur(10))
+# eyebrows (the upper "pair") -> removed so only one pair of eyes reads
+md.ellipse([int(W * 0.445 - 104), int(H * 0.555 - 40),
+            int(W * 0.445 + 104), int(H * 0.555 + 40)], fill=255)
+md.ellipse([int(W * 0.665 - 92), int(H * 0.535 - 40),
+            int(W * 0.665 + 92), int(H * 0.535 + 40)], fill=255)
+mask = mask.filter(ImageFilter.GaussianBlur(9))
 skin = Image.new("RGB", (W, H), SKIN)
 base = Image.composite(skin, base, mask)
 
