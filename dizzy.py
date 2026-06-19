@@ -8,34 +8,10 @@ OUT = "/home/user/ad/dizzy_output.png"
 img = Image.open(SRC).convert("RGBA")
 W, H = img.size
 
-# ---- 1. Spiral "@_@" dizzy eyes (drawn first so the swirl warps them in place) ----
-def spiral_eye(d, ex, ey, er, turns=3.2, col=(35, 25, 25)):
-    pts = []
-    steps = 260
-    for i in range(steps):
-        t = i / steps
-        a = t * turns * 2 * math.pi
-        rad = er * t
-        pts.append((ex + rad * math.cos(a), ey + rad * math.sin(a)))
-    d.line(pts, fill=col, width=max(4, er // 7), joint="curve")
-
-draw0 = ImageDraw.Draw(img)
-# cover the original eyes with skin-ish discs, then draw spirals on top
-def disc(d, ex, ey, er, col):
-    d.ellipse([ex - er, ey - er, ex + er, ey + er], fill=col)
-
-LE = (int(W * 0.41), int(H * 0.63))
-RE = (int(W * 0.63), int(H * 0.60))
-ER = int(W * 0.058)
-disc(draw0, *LE, ER, (250, 222, 198, 255))
-disc(draw0, *RE, ER, (250, 222, 198, 255))
-spiral_eye(draw0, *LE, ER)
-spiral_eye(draw0, *RE, ER)
-
-# ---- 2. Swirl / twist distortion (the woozy warp) ----
-cx, cy = W * 0.5, H * 0.50          # head/eye center
-radius = W * 0.50                    # area affected by the swirl
-strength = 1.25                      # rotation amount at the center
+# ---- 1. Very gentle swirl (a faint woozy lean, face stays clear) ----
+cx, cy = W * 0.5, H * 0.52
+radius = W * 0.48
+strength = 0.42                       # subtle — just a hint of warp
 
 arr = np.asarray(img).astype(np.float32)
 ys, xs = np.mgrid[0:H, 0:W]
@@ -49,44 +25,42 @@ src_x = np.clip((cx + dist * np.cos(twist)).astype(np.int32), 0, W - 1)
 src_y = np.clip((cy + dist * np.sin(twist)).astype(np.int32), 0, H - 1)
 img = Image.fromarray(arr[src_y, src_x].astype(np.uint8), "RGBA")
 
-# ---- 3. Double-vision ghosting + chromatic split (swimmy / blurry feel) ----
 base = img.convert("RGB")
-ghost = base.filter(ImageFilter.GaussianBlur(4))
+
+# ---- 1b. Glassy unfocused gaze (the quiet "懵" lives in the eyes) ----
+eye_blur = base.filter(ImageFilter.GaussianBlur(5))
+eye_mask = Image.new("L", (W, H), 0)
+em = ImageDraw.Draw(eye_mask)
+# two soft ovals over the eyes (positions after the gentle swirl)
+for ex, ey in [(W * 0.41, H * 0.63), (W * 0.62, H * 0.605)]:
+    rx, ry = W * 0.075, H * 0.05
+    em.ellipse([ex - rx, ey - ry, ex + rx, ey + ry], fill=120)
+eye_mask = eye_mask.filter(ImageFilter.GaussianBlur(int(W * 0.03)))
+base = Image.composite(eye_blur, base, eye_mask)
+
+# ---- 2. Dreamy soft-focus glow (the "out of it" depth) ----
+glow = base.filter(ImageFilter.GaussianBlur(6))
+base = Image.blend(base, glow, 0.18)
+
+# ---- 3. Whisper of double vision (very faint, low offset) ----
+ghost = base.filter(ImageFilter.GaussianBlur(2))
 shifted = Image.new("RGB", (W, H), (255, 255, 255))
-shifted.paste(ghost, (14, 6))
-base = Image.blend(base, shifted, 0.26)
+shifted.paste(ghost, (7, 3))
+base = Image.blend(base, shifted, 0.12)
 
+# ---- 4. Subtle chromatic shimmer ----
 r, g, b = base.split()
-r = r.transform((W, H), Image.AFFINE, (1, 0, -8, 0, 1, 0))
-b = b.transform((W, H), Image.AFFINE, (1, 0, 8, 0, 1, 0))
+r = r.transform((W, H), Image.AFFINE, (1, 0, -3, 0, 1, 0))
+b = b.transform((W, H), Image.AFFINE, (1, 0, 3, 0, 1, 0))
 base = Image.merge("RGB", (r, g, b))
-img = base.convert("RGBA")
 
-draw = ImageDraw.Draw(img)
+# ---- 5. Soft depth vignette (pulls focus inward, dreamy) ----
+vig = Image.new("L", (W, H), 0)
+vd = ImageDraw.Draw(vig)
+vd.ellipse([int(-W * 0.10), int(-H * 0.10), int(W * 1.10), int(H * 1.10)], fill=255)
+vig = vig.filter(ImageFilter.GaussianBlur(int(W * 0.12)))
+dark = Image.new("RGB", (W, H), (245, 244, 248))   # gentle, light vignette
+base = Image.composite(base, dark, vig)
 
-# ---- 4. Orbiting stars circling the head ----
-def star(d, cxp, cyp, r, fill):
-    pts = []
-    for i in range(10):
-        ang = -math.pi / 2 + i * math.pi / 5
-        rr = r if i % 2 == 0 else r * 0.45
-        pts.append((cxp + rr * math.cos(ang), cyp + rr * math.sin(ang)))
-    d.polygon(pts, fill=fill)
-
-orbit_cx, orbit_cy = W * 0.5, H * 0.15
-orbit_rx, orbit_ry = W * 0.30, H * 0.075
-n = 6
-for i in range(n):
-    a = i / n * 2 * math.pi
-    sx = orbit_cx + orbit_rx * math.cos(a)
-    sy = orbit_cy + orbit_ry * math.sin(a)
-    size = int(W * (0.018 + 0.012 * (0.5 + 0.5 * math.sin(a))))
-    star(draw, sx, sy, size, (255, 205, 40))
-    star(draw, sx, sy, max(2, size // 3), (255, 245, 180))
-
-draw.arc([orbit_cx - orbit_rx, orbit_cy - orbit_ry,
-          orbit_cx + orbit_rx, orbit_cy + orbit_ry],
-         start=0, end=360, fill=(255, 220, 120), width=4)
-
-img.convert("RGB").save(OUT, quality=95)
+base.save(OUT, quality=95)
 print("saved", OUT)
